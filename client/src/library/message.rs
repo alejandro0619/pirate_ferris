@@ -1,8 +1,9 @@
 use crate::library::state::KarmaModel;
 
-use super::parser::{InputParser, Sender, Dest};
+use super::parser::{Dest, InputParser, Sender};
 use teloxide::prelude::*;
 
+/// Handles the messages that doesn't match the Commands
 pub struct Handler {}
 
 impl Handler {
@@ -15,6 +16,7 @@ impl Handler {
             )
             .await?;
         }
+
         // Check if the message is a text
         if let Some(txt) = msg.text() {
             // Check if it contains +1 or -1
@@ -24,21 +26,28 @@ impl Handler {
 
                 // We check the destination:
                 match dest {
-                    Dest::Id(d) => {
+                    // We get the destination ID and nickname
+                    Dest::IDandUser((d, user)) => {
                         // We check the sender
                         if let Sender::Id(s) = sender {
-                            dbg!(KarmaModel {
-                                id_destination: d,
-                                id_sender: s,
-                                reason: reason,
-                                sign: sign,
-                                username_destination: String::from("test")
-                            });
+                            println!(
+                                "{:#?}",
+                                KarmaModel {
+                                    id_destination: d,
+                                    id_sender: s,
+                                    reason,
+                                    sign,
+                                    username_destination: user
+                                }
+                            )
                         }
-                    },
+                    }
                     Dest::None => {
-                        bot.send_message(msg.chat.id,
-                             "In order to give or take karma you have to reply to a message").await?;
+                        bot.send_message(
+                            msg.chat.id,
+                            "In order to give or take karma you have to reply to a message",
+                        )
+                        .await?;
                     }
                 }
             }
