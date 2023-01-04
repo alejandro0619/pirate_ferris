@@ -5,7 +5,7 @@ type ParseResponse<'a> = (Sender, Dest, Sign, &'a str);
 
 /// This will return metainfo about the receiver
 /// IDandUser will return a tuple with the ID(u64) and the nickname (String)
-/// None means there's no Receive (The user didn't reply to a message)
+/// None means there's no Receiver (The user didn't reply to a message)
 #[derive(Debug)]
 pub enum Dest {
     IDandUser((u64, String)),
@@ -27,12 +27,11 @@ trait Parse {
 #[derive(Debug)]
 pub struct InputParser;
 
-
 impl Parse for Sender {
     fn parse_user(msg: &Message) -> Self {
         match msg.kind.clone() {
             MessageKind::Common(cm) => Sender::Id(cm.from.unwrap().id.0),
-            _ => Sender::None, // It's probable that the match never fall in this branch because it will always be a common message
+            _ => Sender::None, // It's probable that the match will never fall in this branch because it will always be a common message
         }
     }
 }
@@ -46,10 +45,9 @@ impl Parse for Dest {
                 _ => unreachable!(), // Same thing here
             }
         } else {
-            // This means the message (+1 or -1) where send but without replying to a message.
-            // This will trigger the bot to send a message saying that is a must to reply when using it.
-            Dest::None 
-            
+            // This means the message (+1 or -1) were send without replying to a message.
+            // The bot will say that in order to give or take karma from someone you must reply to a message.
+            Dest::None
         }
     }
 }
@@ -60,14 +58,12 @@ impl InputParser {
             Some((sign, reason)) => {
                 let sign = sign.parse::<Sign>().unwrap();
                 // Get's the sender and the destination
-                (
-                    Sender::parse_user(msg),
-                    Dest::parse_user(msg),
-                    sign,
-                    reason,
-                )
+                (Sender::parse_user(msg), Dest::parse_user(msg), sign, reason)
             }
-            None => unreachable!(), // Dunno how its possible to reach this point without a sender, the only reason i find is that the sender deletes the account lol
+            // We already checked there is a +1 or -1 so we know it will always
+            // shrink the String in two parts: before the number and after
+            // This won't fall in this branch
+            None => unreachable!(),
         }
     }
 }

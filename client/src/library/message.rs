@@ -45,7 +45,7 @@ impl Handler {
                     Dest::None => {
                         bot.send_message(
                             msg.chat.id,
-                            "In order to give or take karma you have to reply to a message",
+                            "Arrgh! In order to give or take karma you have to reply to a message",
                         )
                         .await?;
                     }
