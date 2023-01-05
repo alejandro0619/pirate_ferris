@@ -30,19 +30,24 @@ impl Handler {
                     Dest::IDandUser((d, user)) => {
                         // We check the sender
                         if let Sender::Id(s) = sender {
-                            let karma = KarmaModel {
-                                id_destination: d.0,
-                                id_sender: s,
-                                sign,
-                                reason,
-                                username_destination: &user 
-                            };
-                            let karma = Storage::from(karma);
-                            StorageHandler::update(&karma).unwrap();
-                            bot.send_message(
-                                msg.chat.id, 
-                                format!("{user} now has {}\nReason: {}", karma.get_score(), reason)
-                            ).await?;
+                            if s == d.0 {
+                                bot.send_message(msg.chat.id,"Arrgh! You can't add or sub karma from yourself.").await?;
+                            } else {
+                                let karma = KarmaModel {
+                                    id_destination: d.0,
+                                    id_sender: s,
+                                    sign,
+                                    reason,
+                                    username_destination: &user 
+                                };
+                                let karma = Storage::from(karma);
+                                StorageHandler::update(&karma).unwrap();
+                                let total_karma = StorageHandler::find(karma.get_id()).unwrap(); // this shouldn't panic because the user will always exist
+                                bot.send_message(
+                                    msg.chat.id, 
+                                    format!("{user} now has {} karma\nReason: {}", total_karma, reason)
+                                ).await?;
+                            }
                         }
 
                     }

@@ -8,7 +8,7 @@ use nom::{
     IResult,
 };
 use std::fs::OpenOptions;
-use std::io::*;
+use std::io::{self, Write};
 
 /// This handler manages methods such as parse, sort_popular and sort_hated
 /// Such that is not needed to implement it by hand directly in the client
@@ -29,9 +29,8 @@ impl Storage {
             score,
         }
     }
-
-    pub fn get_score(&self) -> i64 {
-        self.score
+    pub fn get_id(&self) -> u64 {
+        self.id
     }
 }
 
@@ -76,7 +75,7 @@ impl StorageHandler {
         //println!("{result:#?}");
         Ok((input, result))
     }
-    pub fn write(i: &Storage) -> Result<()> {
+    fn write(i: &Storage) -> io::Result<()> {
         let mut file = OpenOptions::new()
             .write(true)
             .append(true)
@@ -145,5 +144,23 @@ impl StorageHandler {
         }
     }
     Ok(())
+    }
+
+    pub fn find(i: u64) -> Option<i64>{
+        let input = std::fs::read_to_string("storage.txt").unwrap();
+
+        let lines = input.lines(); // Converts into an iterator of lines
+        let is_found = lines.clone()
+        .array_chunks::<3>()
+        .enumerate()
+        .find(|(_, [id, _, _])| id.contains(&format!("{}", i)));
+
+        match is_found {
+            Some((_, [_, _, score])) => {
+                let (_, score ) = Self::parse_score(score).unwrap();
+                Some(score)
+            },
+            None => None
+        }
     }
 }
