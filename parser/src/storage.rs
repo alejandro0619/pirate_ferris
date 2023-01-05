@@ -1,3 +1,4 @@
+
 use nom::{
     bytes::complete::tag_no_case,
     character::complete::{newline, not_line_ending, u64},
@@ -18,15 +19,19 @@ pub struct StorageHandler;
 pub struct Storage {
     id: u64,
     nick: String,
-    score: u64,
+    score: i64,
 }
 impl Storage {
-    pub fn new(id: u64, nick: &str, score: u64) -> Self {
+    pub fn new(id: u64, nick: String, score: i64) -> Self {
         Self {
             id,
-            nick: nick.to_string(),
+            nick,
             score,
         }
+    }
+
+    pub fn get_score(&self) -> i64 {
+        self.score
     }
 }
 
@@ -50,10 +55,10 @@ impl StorageHandler {
         Ok((input, nick))
     }
     /// Parses the user's score
-    fn parse_score(input: &str) -> IResult<&str, u64> {
+    pub fn parse_score(input: &str) -> IResult<&str, i64> {
         let (input, _) = tag_no_case("score = ")(input)?;
         let (input, score) = not_line_ending(input)?;
-        let (_, score) = u64(score)?; // We parse the str to number
+        let score = score.parse::<i64>().unwrap(); // This should never panic
         Ok((input, score))
     }
     /// It's the "combinator" where we use ``parse_id``, ``parse_nick`` and ``parse_score``.
@@ -63,12 +68,12 @@ impl StorageHandler {
         let (input, nick) = Self::parse_nick(input)?;
         let (input, score) = Self::parse_score(input)?;
 
-        Ok((input, Storage::new(id, nick, score)))
+        Ok((input, Storage::new(id, nick.to_string(), score)))
     }
     ///Exposes a handy function that returns a vector of all items.
     pub fn read(source: &str) -> IResult<&str, Vec<Storage>> {
         let (input, result) = many1(Self::parse_user)(source)?;
-        println!("{result:#?}");
+        //println!("{result:#?}");
         Ok((input, result))
     }
     pub fn write(i: &Storage) -> Result<()> {
@@ -76,14 +81,69 @@ impl StorageHandler {
             .write(true)
             .append(true)
             .create(true)
-            .open("example.txt")?;
-            
-        let input = format!("ID = {}\nNICK = {}\nSCORE = {} ", i.id, i.nick, i.score);
+            .open("storage.txt")?;
+
+        let input = format!("ID = {}\nNICK = {}\nSCORE = {}", i.id, i.nick, i.score);
 
         if let Err(e) = writeln!(file, "{input}") {
             eprintln!("Couldn't write to file: {}", e);
         }
 
         Ok(())
+    }
+}
+
+impl StorageHandler {
+    /// The Update method takes a Storage, if it exists chunks the Array of Users:
+    /// [before the user is found] user [after the user is found]
+    /// Then we edit the user and append it to [before the user is found] + user
+    /// Then we append it to the rest of the array [after the user is found]
+    /// Then we have our new array.
+    /// If the user is not found then we create the new user and append it to the final of the file
+    /// NOTE: This needs to be rewritten for efficiency, here we allocate a lot of vectors and Strings
+    /// Probably one good way to approach this is to modify in place while reading the file
+    /// So we don't have to save it in a buffer and a lot of the allocated vectores would be unnecesary.
+    pub fn update(i: &Storage) -> std::io::Result<()> {
+    let input = std::fs::read_to_string("storage.txt")?;
+
+    let lines = input.lines(); // Converts into an iterator of lines
+    // This chunks the iterator by 3 (id, nick and score) and collects into a vector of arrays [&str, 3]
+    let vec_lines: Vec<[&str; 3]> = lines.clone().array_chunks().collect();
+    // We check if the given ID is already in the document: If Some() it is and we update the score (karma)
+    // If None we need to append the new user
+    let is_found = lines.clone()
+        .array_chunks::<3>()
+        .enumerate()
+        .find(|(_, [id, _, _])| id.contains(&format!("{}", i.id)));
+
+    match is_found {
+        Some((index, [id, nick, score])) => {
+          // Here we parse the score from SCORE = number ->> number
+          let (_, score) = StorageHandler::parse_score(score).unwrap();
+          // We create a updated user array that contains [id, nick, score] and we turn score back into a string
+          let user = [id, nick, &format!("SCORE = {}", score + i.score)]; 
+          // We concat the array before the user was found with the item of the user
+          let with_user = [&vec_lines[..index], &[user]].concat();
+          // We now concat the array with the user with the rest of the array after the user was found
+          // We stringify it to parse it later
+          let result = [&with_user[..], &vec_lines[(index + 1)..]].concat();
+
+          let source = result.iter().map(|[id, nick, score]| {
+            format!("{id}\n{nick}\n{score}\n")
+          }).collect::<String>();
+          // We are parsing it again
+          let (_, parsed) = StorageHandler::read(&source).unwrap();
+          std::fs::remove_file("storage.txt")?; // we remove the file
+          parsed.iter().for_each(|u| { // we create the file and append the content to it
+            StorageHandler::write(u).unwrap();
+          });
+          
+        }
+        None => {
+          // If there's no user with the given id, we append the new user with it's information
+          StorageHandler::write(i)?; 
+        }
+    }
+    Ok(())
     }
 }

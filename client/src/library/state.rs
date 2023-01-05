@@ -1,4 +1,6 @@
-use std::{fmt::Display, str::FromStr};
+use std::{fmt::Display, str::FromStr, ops::Deref};
+use parser::storage::Storage;
+use std::rc::Rc;
 
 #[derive(Debug)]
 pub enum Sign {
@@ -35,6 +37,15 @@ pub struct KarmaModel<'a> {
     pub sign: Sign,
     pub id_sender: u64,
     pub id_destination: u64,
-    pub username_destination: String,
+    pub username_destination: &'a str,
     pub reason: &'a str,
+}
+
+impl From<KarmaModel<'_>> for Storage {
+    fn from(value: KarmaModel) -> Self {
+        match value.sign {
+            Sign::Negative => Self::new(value.id_destination, value.username_destination.to_string(), -1),
+            Sign::Positive => Self::new(value.id_destination, value.username_destination.to_string(), 1),
+        }
+    }
 }

@@ -1,5 +1,5 @@
 use crate::library::state::KarmaModel;
-
+use parser::storage::{Storage, StorageHandler};
 use super::parser::{Dest, InputParser, Sender};
 use teloxide::prelude::*;
 
@@ -30,17 +30,21 @@ impl Handler {
                     Dest::IDandUser((d, user)) => {
                         // We check the sender
                         if let Sender::Id(s) = sender {
-                            println!(
-                                "{:#?}",
-                                KarmaModel {
-                                    id_destination: d,
-                                    id_sender: s,
-                                    reason,
-                                    sign,
-                                    username_destination: user
-                                }
-                            )
+                            let karma = KarmaModel {
+                                id_destination: d.0,
+                                id_sender: s,
+                                sign,
+                                reason,
+                                username_destination: &user 
+                            };
+                            let karma = Storage::from(karma);
+                            StorageHandler::update(&karma).unwrap();
+                            bot.send_message(
+                                msg.chat.id, 
+                                format!("{user} now has {}\nReason: {}", karma.get_score(), reason)
+                            ).await?;
                         }
+
                     }
                     Dest::None => {
                         bot.send_message(

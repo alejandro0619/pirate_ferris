@@ -1,6 +1,6 @@
 #[allow(unused_imports)]
 use super::state::{KarmaModel, Sign};
-use teloxide::{prelude::*, types::MessageKind};
+use teloxide::{prelude::*, types::{MessageKind, UserId}};
 type ParseResponse<'a> = (Sender, Dest, Sign, &'a str);
 
 /// This will return metainfo about the receiver
@@ -8,7 +8,7 @@ type ParseResponse<'a> = (Sender, Dest, Sign, &'a str);
 /// None means there's no Receiver (The user didn't reply to a message)
 #[derive(Debug)]
 pub enum Dest {
-    IDandUser((u64, String)),
+    IDandUser((UserId, String)),
     None,
 }
 /// This will return metainfo abou the sender
@@ -40,7 +40,7 @@ impl Parse for Dest {
         if let Some(message) = msg.reply_to_message() {
             match message.kind.clone() {
                 MessageKind::Common(cm) => {
-                    Dest::IDandUser((cm.clone().from.unwrap().id.0, cm.from.unwrap().first_name))
+                    Dest::IDandUser((cm.clone().from.unwrap().id, cm.from.unwrap().first_name))
                 }
                 _ => unreachable!(), // Same thing here
             }
