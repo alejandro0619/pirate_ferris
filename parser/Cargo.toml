@@ -8,6 +8,6 @@ edition = "2021"
 [dependencies]
 nom = "7.1.2"
 
-#[[bin]]
-#name = "parse"
-#path = "src/parse.rs"
+[[bin]]
+name = "parse"
+path = "src/parse.rs"
