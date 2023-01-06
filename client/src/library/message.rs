@@ -1,6 +1,6 @@
+use super::parser::{Dest, InputParser, Sender};
 use crate::library::state::KarmaModel;
 use parser::storage::{Storage, StorageHandler};
-use super::parser::{Dest, InputParser, Sender};
 use teloxide::prelude::*;
 
 /// Handles the messages that doesn't match the Commands
@@ -31,25 +31,26 @@ impl Handler {
                         // We check the sender
                         if let Sender::Id(s) = sender {
                             if s == d.0 {
-                                bot.send_message(msg.chat.id,"Arrgh! You can't add or sub karma from yourself.").await?;
+                                bot.send_message(
+                                    msg.chat.id,
+                                    "Arrgh! You can't add or sub karma from yourself.",
+                                )
+                                .await?;
                             } else {
-                                let karma = KarmaModel {
-                                    id_destination: d.0,
-                                    id_sender: s,
-                                    sign,
-                                    reason,
-                                    username_destination: &user 
-                                };
+                                let karma = KarmaModel::new(sign, s, d.0, &user, reason);
                                 let karma = Storage::from(karma);
                                 StorageHandler::update(&karma).unwrap();
                                 let total_karma = StorageHandler::find(karma.get_id()).unwrap(); // this shouldn't panic because the user will always exist
                                 bot.send_message(
-                                    msg.chat.id, 
-                                    format!("{user} now has {} karma\nReason: {}", total_karma, reason)
-                                ).await?;
+                                    msg.chat.id,
+                                    format!(
+                                        "{user} now has {} karma\nReason: {}",
+                                        total_karma, reason
+                                    ),
+                                )
+                                .await?;
                             }
                         }
-
                     }
                     Dest::None => {
                         bot.send_message(

@@ -1,6 +1,5 @@
-use std::{fmt::Display, str::FromStr};
 use parser::storage::Storage;
-
+use std::{fmt::Display, str::FromStr};
 
 #[derive(Debug)]
 pub enum Sign {
@@ -34,18 +33,44 @@ impl Display for ParseSignError<'_> {
 }
 #[derive(Debug)]
 pub struct KarmaModel<'a> {
-    pub sign: Sign,
-    pub id_sender: u64,
-    pub id_destination: u64,
-    pub username_destination: &'a str,
-    pub reason: &'a str,
+    sign: Sign,
+    _id_sender: u64,
+    id_destination: u64,
+    username_destination: &'a str,
+    _reason: &'a str,
 }
 
 impl From<KarmaModel<'_>> for Storage {
     fn from(value: KarmaModel) -> Self {
         match value.sign {
-            Sign::Negative => Self::new(value.id_destination, value.username_destination.to_string(), -1),
-            Sign::Positive => Self::new(value.id_destination, value.username_destination.to_string(), 1),
+            Sign::Negative => Self::new(
+                value.id_destination,
+                value.username_destination.to_string(),
+                -1,
+            ),
+            Sign::Positive => Self::new(
+                value.id_destination,
+                value.username_destination.to_string(),
+                1,
+            ),
         }
     }
 }
+impl<'a> KarmaModel<'a> {
+    pub fn new(
+        sign: Sign,
+        sender: u64,
+        dest: u64,
+        username: &'a str,
+        reason: &'a str,
+    ) -> KarmaModel<'a> {
+        KarmaModel {
+            sign,
+            _id_sender: sender,
+            id_destination: dest,
+            username_destination: username,
+            _reason: reason,
+        }
+    }
+}
+

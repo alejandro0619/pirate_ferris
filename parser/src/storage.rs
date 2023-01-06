@@ -156,7 +156,7 @@ impl StorageHandler {
         .find(|(_, [id, _, _])| id.contains(&format!("{}", i)));
 
         match is_found {
-            Some((_, [_, _, score])) => {
+            Some((_index, [_id, _nick, score])) => {
                 let (_, score ) = Self::parse_score(score).unwrap();
                 Some(score)
             },
