@@ -1,5 +1,5 @@
 #[allow(unused_imports)]
-use super::state::{KarmaModel, Sign};
+use super::state::{Model, Sign};
 use teloxide::{prelude::*, types::{MessageKind, UserId}};
 type ParseResponse<'a> = (Sender, Dest, Sign, &'a str);
 

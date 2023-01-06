@@ -32,7 +32,7 @@ impl Display for ParseSignError<'_> {
     }
 }
 #[derive(Debug)]
-pub struct KarmaModel<'a> {
+pub struct Model<'a> {
     sign: Sign,
     _id_sender: u64,
     id_destination: u64,
@@ -40,8 +40,8 @@ pub struct KarmaModel<'a> {
     _reason: &'a str,
 }
 
-impl From<KarmaModel<'_>> for Storage {
-    fn from(value: KarmaModel) -> Self {
+impl From<Model<'_>> for Storage {
+    fn from(value: Model) -> Self {
         match value.sign {
             Sign::Negative => Self::new(
                 value.id_destination,
@@ -56,15 +56,15 @@ impl From<KarmaModel<'_>> for Storage {
         }
     }
 }
-impl<'a> KarmaModel<'a> {
+impl<'a> Model<'a> {
     pub fn new(
         sign: Sign,
         sender: u64,
         dest: u64,
         username: &'a str,
         reason: &'a str,
-    ) -> KarmaModel<'a> {
-        KarmaModel {
+    ) -> Model<'a> {
+        Model {
             sign,
             _id_sender: sender,
             id_destination: dest,
@@ -73,4 +73,3 @@ impl<'a> KarmaModel<'a> {
         }
     }
 }
-
