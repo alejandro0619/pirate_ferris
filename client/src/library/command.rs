@@ -1,5 +1,5 @@
+use parser::storage::StorageHandler;
 use teloxide::{prelude::*, utils::command::BotCommands};
-
 #[allow(dead_code)]
 #[derive(BotCommands, Clone)]
 #[command(
@@ -7,7 +7,7 @@ use teloxide::{prelude::*, utils::command::BotCommands};
     description = "These commands are supported:"
 )]
 pub enum Commands {
-    #[command(description = "Help")]
+    #[command(description = "Sintax: +1 [reason why] or -1 [reason why]")]
     Help,
     #[command(description = "Top 10 users")]
     KarmaTop,
@@ -19,18 +19,18 @@ pub enum Commands {
 
 impl Commands {
     pub async fn answer(bot: Bot, msg: Message, cmd: Commands) -> ResponseResult<()> {
-        println!("bien");
+        //println!("ok");
         match cmd {
             Commands::Help => {
                 bot.send_message(msg.chat.id, Commands::descriptions().to_string())
                     .await?
             }
             Commands::KarmaTop => {
-                bot.send_message(msg.chat.id, "This triggers top 10 users")
+                bot.send_message(msg.chat.id, format!("{:?}", StorageHandler::sort()?))
                     .await?
             }
             Commands::KarmaTopHate => {
-                bot.send_message(msg.chat.id, "This triggers top 10 hated users")
+                bot.send_message(msg.chat.id, format!("{:?}", StorageHandler::rev_sort()?))
                     .await?
             }
             Commands::CheckUser => {

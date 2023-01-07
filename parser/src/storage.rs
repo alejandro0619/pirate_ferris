@@ -1,4 +1,3 @@
-
 use nom::{
     bytes::complete::tag_no_case,
     character::complete::{newline, not_line_ending, u64},
@@ -23,11 +22,7 @@ pub struct Storage {
 }
 impl Storage {
     pub fn new(id: u64, nick: String, score: i64) -> Self {
-        Self {
-            id,
-            nick,
-            score,
-        }
+        Self { id, nick, score }
     }
     pub fn get_id(&self) -> u64 {
         self.id
@@ -103,64 +98,82 @@ impl StorageHandler {
     /// Probably one good way to approach this is to modify in place while reading the file
     /// So we don't have to save it in a buffer and a lot of the allocated vectores would be unnecesary.
     pub fn update(i: &Storage) -> std::io::Result<()> {
-    let input = std::fs::read_to_string("storage.txt")?;
+        let input = std::fs::read_to_string("storage.txt")?;
 
-    let lines = input.lines(); // Converts into an iterator of lines
-    // This chunks the iterator by 3 (id, nick and score) and collects into a vector of arrays [&str, 3]
-    let vec_lines: Vec<[&str; 3]> = lines.clone().array_chunks().collect();
-    // We check if the given ID is already in the document: If Some() it is and we update the score (karma)
-    // If None we need to append the new user
-    let is_found = lines.clone()
-        .array_chunks::<3>()
-        .enumerate()
-        .find(|(_, [id, _, _])| id.contains(&format!("{}", i.id)));
+        let lines = input.lines(); // Converts into an iterator of lines
+                                   // This chunks the iterator by 3 (id, nick and score) and collects into a vector of arrays [&str, 3]
+        let vec_lines: Vec<[&str; 3]> = lines.clone().array_chunks().collect();
+        // We check if the given ID is already in the document: If Some() it is and we update the score (karma)
+        // If None we need to append the new user
+        let is_found = lines
+            .clone()
+            .array_chunks::<3>()
+            .enumerate()
+            .find(|(_, [id, _, _])| id.contains(&format!("{}", i.id)));
 
-    match is_found {
-        Some((index, [id, nick, score])) => {
-          // Here we parse the score from SCORE = number ->> number
-          let (_, score) = StorageHandler::parse_score(score).unwrap();
-          // We create a updated user array that contains [id, nick, score] and we turn score back into a string
-          let user = [id, nick, &format!("SCORE = {}", score + i.score)]; 
-          // We concat the array before the user was found with the item of the user
-          let with_user = [&vec_lines[..index], &[user]].concat();
-          // We now concat the array with the user with the rest of the array after the user was found
-          // We stringify it to parse it later
-          let result = [&with_user[..], &vec_lines[(index + 1)..]].concat();
+        match is_found {
+            Some((index, [id, nick, score])) => {
+                // Here we parse the score from SCORE = number ->> number
+                let (_, score) = StorageHandler::parse_score(score).unwrap();
+                // We create a updated user array that contains [id, nick, score] and we turn score back into a string
+                let user = [id, nick, &format!("SCORE = {}", score + i.score)];
+                // We concat the array before the user was found with the item of the user
+                let with_user = [&vec_lines[..index], &[user]].concat();
+                // We now concat the array with the user with the rest of the array after the user was found
+                // We stringify it to parse it later
+                let result = [&with_user[..], &vec_lines[(index + 1)..]].concat();
 
-          let source = result.iter().map(|[id, nick, score]| {
-            format!("{id}\n{nick}\n{score}\n")
-          }).collect::<String>();
-          // We are parsing it again
-          let (_, parsed) = StorageHandler::read(&source).unwrap();
-          std::fs::remove_file("storage.txt")?; // we remove the file
-          parsed.iter().for_each(|u| { // we create the file and append the content to it
-            StorageHandler::write(u).unwrap();
-          });
-          
+                let source = result
+                    .iter()
+                    .map(|[id, nick, score]| format!("{id}\n{nick}\n{score}\n"))
+                    .collect::<String>();
+                // We are parsing it again
+                let (_, parsed) = StorageHandler::read(&source).unwrap();
+                std::fs::remove_file("storage.txt")?; // we remove the file
+                parsed.iter().for_each(|u| {
+                    // we create the file and append the content to it
+                    StorageHandler::write(u).unwrap();
+                });
+            }
+            None => {
+                // If there's no user with the given id, we append the new user with it's information
+                StorageHandler::write(i)?;
+            }
         }
-        None => {
-          // If there's no user with the given id, we append the new user with it's information
-          StorageHandler::write(i)?; 
-        }
-    }
-    Ok(())
+        Ok(())
     }
 
-    pub fn find(i: u64) -> Option<i64>{
+    pub fn find(i: u64) -> Option<i64> {
         let input = std::fs::read_to_string("storage.txt").unwrap();
 
         let lines = input.lines(); // Converts into an iterator of lines
-        let is_found = lines.clone()
-        .array_chunks::<3>()
-        .enumerate()
-        .find(|(_, [id, _, _])| id.contains(&format!("{}", i)));
+        let is_found = lines
+            .clone()
+            .array_chunks::<3>()
+            .enumerate()
+            .find(|(_, [id, _, _])| id.contains(&format!("{}", i)));
 
         match is_found {
             Some((_index, [_id, _nick, score])) => {
-                let (_, score ) = Self::parse_score(score).unwrap();
+                let (_, score) = Self::parse_score(score).unwrap();
                 Some(score)
-            },
-            None => None
+            }
+            None => None,
         }
+    }
+
+    pub fn sort() -> io::Result<Vec<Storage>> {
+        let input = std::fs::read_to_string("storage.txt")?;
+        let (_, mut users) = StorageHandler::read(&input).unwrap();
+        users.sort_by(|a, b| b.score.cmp(&a.score));
+        Ok(users)
+    }
+
+    pub fn rev_sort() -> io::Result<Vec<Storage>> {
+        let input = std::fs::read_to_string("storage.txt")?;
+        let (_, mut users) = StorageHandler::read(&input).unwrap();
+
+        users.sort_by(|a, b| a.score.cmp(&b.score));
+        Ok(users)
     }
 }
