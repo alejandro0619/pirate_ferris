@@ -162,18 +162,44 @@ impl StorageHandler {
         }
     }
 
-    pub fn sort() -> io::Result<Vec<Storage>> {
+    pub fn sort() -> io::Result<String> {
         let input = std::fs::read_to_string("storage.txt")?;
         let (_, mut users) = StorageHandler::read(&input).unwrap();
+        let mut listed_top = String::new();
+        // Sort the array of Users
         users.sort_by(|a, b| b.score.cmp(&a.score));
-        Ok(users)
+
+        users.iter().enumerate().for_each(|(i, u)| {
+            // Only shows top ten:
+            if i < 10 {
+                listed_top.push_str(&format!(
+                    "{}.- Name: {}\nScore: {}\n\n",
+                    i + 1,
+                    u.nick,
+                    u.score
+                ))
+            }
+        });
+        Ok(listed_top)
     }
 
-    pub fn rev_sort() -> io::Result<Vec<Storage>> {
+    pub fn rev_sort() -> io::Result<String> {
         let input = std::fs::read_to_string("storage.txt")?;
         let (_, mut users) = StorageHandler::read(&input).unwrap();
-
+        let mut listed_hated = String::new();
         users.sort_by(|a, b| a.score.cmp(&b.score));
-        Ok(users)
+
+        users.iter().enumerate().for_each(|(i, u)| {
+            // Only shows top ten:
+            if i < 10 {
+                listed_hated.push_str(&format!(
+                    "{}.- Name: {}\nScore: {}\n\n",
+                    i + 1,
+                    u.nick,
+                    u.score
+                ))
+            }
+        });
+        Ok(listed_hated)
     }
 }

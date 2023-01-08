@@ -19,14 +19,13 @@ pub enum Commands {
 
 impl Commands {
     pub async fn answer(bot: Bot, msg: Message, cmd: Commands) -> ResponseResult<()> {
-        //println!("ok");
         match cmd {
             Commands::Help => {
                 bot.send_message(msg.chat.id, Commands::descriptions().to_string())
                     .await?
             }
             Commands::KarmaTop => {
-                bot.send_message(msg.chat.id, format!("{:?}", StorageHandler::sort()?))
+                bot.send_message(msg.chat.id, format!("{}", StorageHandler::sort()?))
                     .await?
             }
             Commands::KarmaTopHate => {

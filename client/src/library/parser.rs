@@ -1,6 +1,9 @@
 #[allow(unused_imports)]
 use super::state::{Model, Sign};
-use teloxide::{prelude::*, types::{MessageKind, UserId}};
+use teloxide::{
+    prelude::*,
+    types::{MessageKind, UserId},
+};
 type ParseResponse<'a> = (Sender, Dest, Sign, &'a str);
 
 /// This will return metainfo about the receiver
