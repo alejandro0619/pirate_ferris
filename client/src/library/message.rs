@@ -37,7 +37,13 @@ impl Handler {
                                 )
                                 .await?;
                             } else {
-                                let karma = Model::new(sign, s, d.0, &user, reason);
+                                let karma = Model::new(
+                                    sign,
+                                    s,
+                                    d.0,
+                                    &user,
+                                     reason,
+                                    );
                                 let karma = Storage::from(karma);
                                 StorageHandler::update(&karma).unwrap();
                                 let total_karma = StorageHandler::find(karma.get_id()).unwrap(); // this shouldn't panic because the user will always exist
