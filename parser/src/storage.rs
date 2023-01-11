@@ -1,3 +1,4 @@
+use chrono::{DateTime, Duration, Utc};
 use nom::{
     bytes::complete::tag_no_case,
     character::complete::{newline, not_line_ending, u64},
@@ -17,12 +18,18 @@ pub struct StorageHandler;
 #[derive(Debug)]
 pub struct Storage {
     id: u64,
+    timestamp: DateTime<Utc>,
     nick: String,
     score: i64,
 }
 impl Storage {
-    pub fn new(id: u64, nick: String, score: i64) -> Self {
-        Self { id, nick, score }
+    pub fn new(id: u64, timestamp: DateTime<Utc>, nick: String, score: i64) -> Self {
+        Self {
+            id,
+            timestamp,
+            nick,
+            score,
+        }
     }
     pub fn get_id(&self) -> u64 {
         self.id
@@ -39,6 +46,16 @@ impl StorageHandler {
         let (input, _) = newline(input)?;
 
         Ok((input, id))
+    }
+    pub fn parse_datetime(input: &str) -> IResult<&str, DateTime<Utc>> {
+        let (input, _) = tag_no_case("timestamp = ")(input)?;
+        let (input, timestamp) = not_line_ending(input)?;
+        println!("{timestamp}");
+        let parsed_timestamp = DateTime::parse_from_rfc3339(timestamp)
+            .unwrap()
+            .with_timezone(&Utc);
+        let (input, _) = newline(input)?;
+        Ok((input, parsed_timestamp))
     }
     /// Parses the user's nickname
     fn parse_nick(input: &str) -> IResult<&str, &str> {
@@ -59,10 +76,11 @@ impl StorageHandler {
     /// Returns an instance of Storage.
     fn parse_user(input: &str) -> IResult<&str, Storage> {
         let (input, id) = Self::parse_id(input)?;
+        let (input, timestamp) = Self::parse_datetime(input)?;
         let (input, nick) = Self::parse_nick(input)?;
         let (input, score) = Self::parse_score(input)?;
 
-        Ok((input, Storage::new(id, nick.to_string(), score)))
+        Ok((input, Storage::new(id, timestamp, nick.to_string(), score)))
     }
     ///Exposes a handy function that returns a vector of all items.
     pub fn read(source: &str) -> IResult<&str, Vec<Storage>> {
@@ -77,7 +95,10 @@ impl StorageHandler {
             .create(true)
             .open("storage.txt")?;
 
-        let input = format!("ID = {}\nNICK = {}\nSCORE = {}", i.id, i.nick, i.score);
+        let input = format!(
+            "ID = {}\nTIMESTAMP = {}\nNICK = {}\nSCORE = {}",
+            i.id, i.timestamp, i.nick, i.score
+        );
 
         if let Err(e) = writeln!(file, "{input}") {
             eprintln!("Couldn't write to file: {}", e);
@@ -97,50 +118,70 @@ impl StorageHandler {
     /// NOTE: This needs to be rewritten for efficiency, here we allocate a lot of vectors and Strings
     /// Probably one good way to approach this is to modify in place while reading the file
     /// So we don't have to save it in a buffer and a lot of the allocated vectores would be unnecesary.
-    pub fn update(i: &Storage) -> std::io::Result<()> {
+    pub fn update(i: &Storage) -> std::io::Result<bool> {
         let input = std::fs::read_to_string("storage.txt")?;
 
         let lines = input.lines(); // Converts into an iterator of lines
-                                   // This chunks the iterator by 3 (id, nick and score) and collects into a vector of arrays [&str, 3]
-        let vec_lines: Vec<[&str; 3]> = lines.clone().array_chunks().collect();
+                                   // This chunks the iterator by 3 (id, nick and score)
+                                   // and collects into a vector of arrays [&str, 3]
+
+        let vec_lines: Vec<[&str; 4]> = lines.clone().array_chunks().collect();
         // We check if the given ID is already in the document: If Some() it is and we update the score (karma)
         // If None we need to append the new user
         let is_found = lines
             .clone()
-            .array_chunks::<3>()
+            .array_chunks::<4>()
             .enumerate()
-            .find(|(_, [id, _, _])| id.contains(&format!("{}", i.id)));
+            .find(|(_, [id, _, _, _])| id.contains(&format!("{}", i.id)));
 
         match is_found {
-            Some((index, [id, nick, score])) => {
-                // Here we parse the score from SCORE = number ->> number
+            Some((index, [id, timestamp, nick, score])) => {
+                // Here we parse the score from SCORE = stirng ->> number
                 let (_, score) = StorageHandler::parse_score(score).unwrap();
-                // We create a updated user array that contains [id, nick, score] and we turn score back into a string
-                let user = [id, nick, &format!("SCORE = {}", score + i.score)];
-                // We concat the array before the user was found with the item of the user
-                let with_user = [&vec_lines[..index], &[user]].concat();
-                // We now concat the array with the user with the rest of the array after the user was found
-                // We stringify it to parse it later
-                let result = [&with_user[..], &vec_lines[(index + 1)..]].concat();
+                // Here we parse the timestamp from TIMESTAMP = string ->> DateTime<Utc>
+                let (_, timestamp) = StorageHandler::parse_datetime(timestamp).unwrap();
 
-                let source = result
-                    .iter()
-                    .map(|[id, nick, score]| format!("{id}\n{nick}\n{score}\n"))
-                    .collect::<String>();
-                // We are parsing it again
-                let (_, parsed) = StorageHandler::read(&source).unwrap();
-                std::fs::remove_file("storage.txt")?; // we remove the file
-                parsed.iter().for_each(|u| {
-                    // we create the file and append the content to it
-                    StorageHandler::write(u).unwrap();
-                });
+                if i.timestamp <= timestamp + Duration::minutes(1) {
+                    // Early return with false
+                    return Ok(false);
+                } else {
+                    let new_timestamp = format!("TIMESTAMP = {}", i.timestamp);
+                    // We create a updated user array that contains [id, nick, score] and we turn score back into a string
+                    let user = [
+                        id,
+                        &new_timestamp,
+                        nick,
+                        &format!("SCORE = {}", score + i.score),
+                    ];
+                    // We concat the array before the user was found with the item of the user
+                    let with_user = [&vec_lines[..index], &[user]].concat();
+                    // We now concat the array with the user with the rest of the array after the user was found
+                    // We stringify it to parse it later
+                    let result = [&with_user[..], &vec_lines[(index + 1)..]].concat();
+
+                    let source = result
+                        .iter()
+                        .map(|[id, timestamp, nick, score]| {
+                            format!("{id}\n{timestamp}\n{nick}\n{score}\n")
+                        })
+                        .collect::<String>();
+                    // We are parsing it again
+                    let (_, parsed) = StorageHandler::read(&source).unwrap();
+                    std::fs::remove_file("storage.txt")?; // we remove the file
+                    parsed.iter().for_each(|u| {
+                        // we create the file and append the content to it
+                        StorageHandler::write(u).unwrap();
+                    });
+                    return Ok(true);
+                }
             }
             None => {
                 // If there's no user with the given id, we append the new user with it's information
                 StorageHandler::write(i)?;
+                println!("no existe y escribo");
+                Ok(true)
             }
         }
-        Ok(())
     }
 
     pub fn find(i: u64) -> Option<i64> {
@@ -149,12 +190,17 @@ impl StorageHandler {
         let lines = input.lines(); // Converts into an iterator of lines
         let is_found = lines
             .clone()
-            .array_chunks::<3>()
+            .array_chunks::<4>()
             .enumerate()
-            .find(|(_, [id, _, _])| id.contains(&format!("{}", i)));
+            .find(|(_, [id, _, _, _])| id.contains(&format!("{}", i)));
 
+        lines
+            .clone()
+            .array_chunks::<4>()
+            .enumerate()
+            .for_each(|(_, lol)| println!("{lol:#?}"));
         match is_found {
-            Some((_index, [_id, _nick, score])) => {
+            Some((_index, [_id, _timestamp, _nick, score])) => {
                 let (_, score) = Self::parse_score(score).unwrap();
                 Some(score)
             }

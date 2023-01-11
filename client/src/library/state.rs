@@ -1,5 +1,6 @@
 use parser::storage::Storage;
 use std::{fmt::Display, str::FromStr};
+use chrono::{offset::Utc, DateTime};
 
 #[derive(Debug)]
 pub enum Sign {
@@ -34,6 +35,7 @@ impl Display for ParseSignError<'_> {
 #[derive(Debug)]
 pub struct Model<'a> {
     sign: Sign,
+    timestamp: DateTime<Utc>,
     _id_sender: u64,
     id_destination: u64,
     username_destination: &'a str,
@@ -45,11 +47,14 @@ impl From<Model<'_>> for Storage {
         match value.sign {
             Sign::Negative => Self::new(
                 value.id_destination,
+                value.timestamp,
                 value.username_destination.to_string(),
                 -1,
             ),
             Sign::Positive => Self::new(
                 value.id_destination,
+                value.timestamp,
+                
                 value.username_destination.to_string(),
                 1,
             ),
@@ -59,6 +64,7 @@ impl From<Model<'_>> for Storage {
 impl<'a> Model<'a> {
     pub fn new(
         sign: Sign,
+        timestamp: DateTime<Utc>,
         sender: u64,
         dest: u64,
         username: &'a str,
@@ -66,6 +72,7 @@ impl<'a> Model<'a> {
     ) -> Model<'a> {
         Model {
             sign,
+            timestamp,
             _id_sender: sender,
             id_destination: dest,
             username_destination: username,

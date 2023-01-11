@@ -1,5 +1,6 @@
 use super::parser::{Dest, InputParser, Sender};
 use crate::library::state::Model;
+use chrono::Utc;
 use parser::storage::{Storage, StorageHandler};
 use teloxide::prelude::*;
 
@@ -37,24 +38,28 @@ impl Handler {
                                 )
                                 .await?;
                             } else {
-                                let karma = Model::new(
-                                    sign,
-                                    s,
-                                    d.0,
-                                    &user,
-                                     reason,
-                                    );
+                                // Here we create the timestamp
+                                let last_edited = Utc::now();
+                                println!("{last_edited:?}");
+                                let karma = Model::new(sign, last_edited, s, d.0, &user, reason);
                                 let karma = Storage::from(karma);
-                                StorageHandler::update(&karma).unwrap();
-                                let total_karma = StorageHandler::find(karma.get_id()).unwrap(); // this shouldn't panic because the user will always exist
-                                bot.send_message(
-                                    msg.chat.id,
-                                    format!(
-                                        "{user} now has {} karma\nReason: {}",
-                                        total_karma, reason
-                                    ),
-                                )
-                                .await?;
+                                if StorageHandler::update(&karma).unwrap() {
+                                    println!("Sin problemas aqui");
+                                    let total_karma = StorageHandler::find(karma.get_id()).unwrap();
+                                    bot.send_message(
+                                        msg.chat.id,
+                                        format!(
+                                            "{user} now has {} karma\nReason: {}",
+                                            total_karma, reason
+                                        ),
+                                    )
+                                    .await?;
+                                } else {
+                                    bot.send_message(
+                                        msg.chat.id,
+                                        "You have to wait at least 1 minute to give or take karma to the same user"
+                                    ).await?;
+                                }
                             }
                         }
                     }
