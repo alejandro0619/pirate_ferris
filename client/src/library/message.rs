@@ -1,6 +1,6 @@
 use super::parser::{Dest, InputParser, Sender};
 use crate::library::state::Model;
-use chrono::Utc;
+use chrono::{FixedOffset, Utc};
 use parser::storage::{Storage, StorageHandler};
 use teloxide::prelude::*;
 
@@ -40,8 +40,9 @@ impl Handler {
                             } else {
                                 // Here we create the timestamp
                                 let last_edited = Utc::now();
-                                println!("{last_edited:?}");
-                                let karma = Model::new(sign, last_edited, s, d.0, &user, reason);
+
+                                let karma =
+                                    Model::new(sign, last_edited.into(), s, d.0, &user, reason);
                                 let karma = Storage::from(karma);
                                 if StorageHandler::update(&karma).unwrap() {
                                     println!("Sin problemas aqui");

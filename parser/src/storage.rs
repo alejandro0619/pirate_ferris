@@ -1,4 +1,4 @@
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Duration, FixedOffset};
 use nom::{
     bytes::complete::tag_no_case,
     character::complete::{newline, not_line_ending, u64},
@@ -18,12 +18,12 @@ pub struct StorageHandler;
 #[derive(Debug)]
 pub struct Storage {
     id: u64,
-    timestamp: DateTime<Utc>,
+    timestamp: String,
     nick: String,
     score: i64,
 }
 impl Storage {
-    pub fn new(id: u64, timestamp: DateTime<Utc>, nick: String, score: i64) -> Self {
+    pub fn new(id: u64, timestamp: String, nick: String, score: i64) -> Self {
         Self {
             id,
             timestamp,
@@ -47,15 +47,12 @@ impl StorageHandler {
 
         Ok((input, id))
     }
-    pub fn parse_datetime(input: &str) -> IResult<&str, DateTime<Utc>> {
+    pub fn parse_datetime(input: &str) -> IResult<&str, &str> {
         let (input, _) = tag_no_case("timestamp = ")(input)?;
         let (input, timestamp) = not_line_ending(input)?;
-        println!("{timestamp}");
-        let parsed_timestamp = DateTime::parse_from_rfc3339(timestamp)
-            .unwrap()
-            .with_timezone(&Utc);
-        let (input, _) = newline(input)?;
-        Ok((input, parsed_timestamp))
+
+        let (input, _) = opt(newline)(input)?;
+        Ok((input, timestamp))
     }
     /// Parses the user's nickname
     fn parse_nick(input: &str) -> IResult<&str, &str> {
@@ -80,7 +77,10 @@ impl StorageHandler {
         let (input, nick) = Self::parse_nick(input)?;
         let (input, score) = Self::parse_score(input)?;
 
-        Ok((input, Storage::new(id, timestamp, nick.to_string(), score)))
+        Ok((
+            input,
+            Storage::new(id, timestamp.to_string(), nick.to_string(), score),
+        ))
     }
     ///Exposes a handy function that returns a vector of all items.
     pub fn read(source: &str) -> IResult<&str, Vec<Storage>> {
@@ -126,7 +126,8 @@ impl StorageHandler {
                                    // and collects into a vector of arrays [&str, 3]
 
         let vec_lines: Vec<[&str; 4]> = lines.clone().array_chunks().collect();
-        // We check if the given ID is already in the document: If Some() it is and we update the score (karma)
+        // We check if the given ID is already in the document:
+        // If Some() it is and we update the score (karma)
         // If None we need to append the new user
         let is_found = lines
             .clone()
@@ -140,13 +141,15 @@ impl StorageHandler {
                 let (_, score) = StorageHandler::parse_score(score).unwrap();
                 // Here we parse the timestamp from TIMESTAMP = string ->> DateTime<Utc>
                 let (_, timestamp) = StorageHandler::parse_datetime(timestamp).unwrap();
-
-                if i.timestamp <= timestamp + Duration::minutes(1) {
+                if DateTime::parse_from_rfc3339(&i.timestamp).unwrap()
+                    <= DateTime::parse_from_rfc3339(timestamp).unwrap() + Duration::minutes(1)
+                {
                     // Early return with false
                     return Ok(false);
                 } else {
                     let new_timestamp = format!("TIMESTAMP = {}", i.timestamp);
-                    // We create a updated user array that contains [id, nick, score] and we turn score back into a string
+                    // We create a updated user array that contains [id, nick, score]
+                    // and we turn score back into a string
                     let user = [
                         id,
                         &new_timestamp,
@@ -155,14 +158,17 @@ impl StorageHandler {
                     ];
                     // We concat the array before the user was found with the item of the user
                     let with_user = [&vec_lines[..index], &[user]].concat();
-                    // We now concat the array with the user with the rest of the array after the user was found
+                    // We now concat the array with the user with the rest of the array
+                    // after the user was found
                     // We stringify it to parse it later
                     let result = [&with_user[..], &vec_lines[(index + 1)..]].concat();
 
                     let source = result
                         .iter()
                         .map(|[id, timestamp, nick, score]| {
-                            format!("{id}\n{timestamp}\n{nick}\n{score}\n")
+                            let foo = format!("{id}\n{timestamp}\n{nick}\n{score}\n");
+                            println!("{foo:?}");
+                            foo
                         })
                         .collect::<String>();
                     // We are parsing it again
@@ -194,11 +200,11 @@ impl StorageHandler {
             .enumerate()
             .find(|(_, [id, _, _, _])| id.contains(&format!("{}", i)));
 
-        lines
-            .clone()
-            .array_chunks::<4>()
-            .enumerate()
-            .for_each(|(_, lol)| println!("{lol:#?}"));
+        lines.clone().array_chunks::<4>().enumerate().for_each(
+            |(_, [id, timestamp, nick, score])| {
+                println!("ID: {id}\nTimestamp: {timestamp}\nNick: {nick}\nScore: {score}");
+            },
+        );
         match is_found {
             Some((_index, [_id, _timestamp, _nick, score])) => {
                 let (_, score) = Self::parse_score(score).unwrap();
