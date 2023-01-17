@@ -88,6 +88,7 @@ impl StorageHandler {
         //println!("{result:#?}");
         Ok((input, result))
     }
+    // Should implement better error handling
     fn write(i: &Storage) -> io::Result<()> {
         let mut file = OpenOptions::new()
             .write(true)
